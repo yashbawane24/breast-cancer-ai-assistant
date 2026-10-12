@@ -264,8 +264,15 @@ export default function TrendsPage() {
                 </div>
               </div>
 
-              {comparisonData.chart_data?.length > 0 && (
-                <ComparisonChart data={comparisonData.chart_data} />
+              {comparisonData.chart_data && comparisonData.chart_data.length > 0 ? (
+                <ComparisonChart 
+                  chartData={comparisonData.chart_data} 
+                  insights={comparisonData.insights || []} 
+                />
+              ) : (
+                <div className="p-4 bg-porcelain/60 rounded-xl text-center text-xs text-ink-soft border border-ink/5">
+                  <Translate>No common numerical lab parameters were found between these two reports to generate a percent-change bar chart.</Translate>
+                </div>
               )}
             </div>
           )}

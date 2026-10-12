@@ -32,10 +32,11 @@ const CustomLabel = (props) => {
   )
 }
 
-const CustomTooltip = ({ active, payload, label, insights }) => {
+const CustomTooltip = ({ active, payload, label, insights = [] }) => {
   if (active && payload && payload.length) {
-    const data = payload[0].payload
-    const insightObj = insights?.find(i => i.parameter === data.parameter)
+    const data = payload[0]?.payload
+    if (!data) return null;
+    const insightObj = insights?.find(i => i?.parameter === data.parameter)
     
     return (
       <div className="bg-white/95 backdrop-blur shadow-lg border border-ink/10 rounded-xl p-4 max-w-xs">
@@ -52,11 +53,11 @@ const CustomTooltip = ({ active, payload, label, insights }) => {
         </div>
         <div className="mt-3 border-t border-ink/5 pt-3">
           <p className="text-sm font-medium text-ink flex items-center gap-1 mb-1">
-             % Change: <span className={data.percent_change > 0 ? 'text-rose-600' : 'text-emerald-600'}>
-               {data.percent_change > 0 ? '+' : ''}{data.percent_change}%
+             % Change: <span className={(data.percent_change || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+               {(data.percent_change || 0) > 0 ? '+' : ''}{data.percent_change}%
              </span>
           </p>
-          {insightObj && (
+          {insightObj?.insight && (
             <div className="mt-2 bg-rose-50 text-rose-900 rounded-lg p-2 text-xs leading-relaxed flex gap-2">
               <Sparkles size={14} className="shrink-0 mt-0.5 text-rose-500" />
               <span>{insightObj.insight}</span>
@@ -69,7 +70,7 @@ const CustomTooltip = ({ active, payload, label, insights }) => {
   return null
 }
 
-export default function ComparisonChart({ chartData, data, insights }) {
+export default function ComparisonChart({ chartData, data, insights = [] }) {
   const items = chartData || data || []
   if (!items || items.length === 0) {
     return (
@@ -109,9 +110,9 @@ export default function ComparisonChart({ chartData, data, insights }) {
             dataKey="percent_change" 
             radius={[4, 4, 4, 4]}
           >
-            <LabelList content={<CustomLabel insights={insights} data={chartData} />} />
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.percent_change > 0 ? '#E11D48' : '#059669'} fillOpacity={0.8} />
+            <LabelList content={<CustomLabel insights={insights} data={items} />} />
+            {items.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={(entry?.percent_change || 0) > 0 ? '#E11D48' : '#059669'} fillOpacity={0.8} />
             ))}
           </Bar>
         </BarChart>
