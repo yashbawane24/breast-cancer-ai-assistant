@@ -1,11 +1,17 @@
 import { createContext, useContext, useState } from 'react'
-import { chatExamples } from '../data/mockData.js'
 import { chatWithAssistant } from '../services/api.js'
 
 const AssistantContext = createContext()
 
 export const AssistantProvider = ({ children }) => {
-  const [messages, setMessages] = useState(chatExamples)
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      text: "Hello! I am Halcyon, your breast health AI copilot. You can ask me to explain any findings in your medical documents, clarify lab parameters, or review treatment guidance.",
+      grounded: true,
+      emotion: 'Supportive & Welcoming'
+    }
+  ])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
 

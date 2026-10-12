@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db.database import connect_to_mongo, close_mongo_connection
+from app.db.database import connect_to_mongo, close_mongo_connection, db
 from app.api import routes_auth, routes_upload, routes_reports, routes_trends, routes_chat, routes_translate, routes_sandbox, routes_triage
 
 @asynccontextmanager
@@ -56,8 +56,28 @@ async def health_check():
     except Exception as e:
         db_status = "error"
         db_error = str(e)
+
+    llm_status = "ok"
+    llm_error = None
+    if not settings.groq_api_key:
+        llm_status = "missing_api_key"
+        llm_error = "GROQ_API_KEY is not configured in environment variables"
+    else:
+        try:
+            from app.services.llm_service import client
+            client.chat.completions.create(
+                model="qwen/qwen3.8-27b",
+                messages=[{"role": "user", "content": "ping"}],
+                max_tokens=2
+            )
+        except Exception as e:
+            llm_status = "error"
+            llm_error = str(e)
+
     return {
         "status": "ok",
         "database": db_status,
-        "database_error": db_error
+        "database_error": db_error,
+        "llm": llm_status,
+        "llm_error": llm_error
     }
