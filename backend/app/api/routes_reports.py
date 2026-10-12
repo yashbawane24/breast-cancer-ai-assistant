@@ -15,7 +15,7 @@ DEFAULT_GUEST_ID = "guest_patient_default"
 @router.get("/", response_model=List[ReportOut])
 async def list_reports(user_id: str | None = Depends(get_optional_user_id)):
     if user_id:
-        query = {"$or": [{"patient_id": user_id}, {"patient_id": DEFAULT_GUEST_ID}]}
+        query = {"patient_id": user_id}
     else:
         query = {"patient_id": DEFAULT_GUEST_ID}
         
@@ -36,9 +36,9 @@ async def get_report(report_id: str, user_id: str | None = Depends(get_optional_
         raise HTTPException(status_code=400, detail="Invalid report ID format")
         
     if user_id:
-        query = {"_id": obj_id, "$or": [{"patient_id": user_id}, {"patient_id": DEFAULT_GUEST_ID}]}
+        query = {"_id": obj_id, "patient_id": user_id}
     else:
-        query = {"_id": obj_id}
+        query = {"_id": obj_id, "patient_id": DEFAULT_GUEST_ID}
         
     report = await db.db.reports.find_one(query)
     if not report:
@@ -54,7 +54,12 @@ async def view_report_file(report_id: str, user_id: str | None = Depends(get_opt
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid report ID format")
         
-    report = await db.db.reports.find_one({"_id": obj_id})
+    if user_id:
+        query = {"_id": obj_id, "patient_id": user_id}
+    else:
+        query = {"_id": obj_id, "patient_id": DEFAULT_GUEST_ID}
+
+    report = await db.db.reports.find_one(query)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     
@@ -71,9 +76,10 @@ async def delete_report(report_id: str, user_id: str | None = Depends(get_option
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid report ID format")
         
-    query = {"_id": obj_id}
     if user_id:
-        query["$or"] = [{"patient_id": user_id}, {"patient_id": DEFAULT_GUEST_ID}]
+        query = {"_id": obj_id, "patient_id": user_id}
+    else:
+        query = {"_id": obj_id, "patient_id": DEFAULT_GUEST_ID}
         
     report = await db.db.reports.find_one(query)
     if not report:

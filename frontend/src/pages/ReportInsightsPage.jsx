@@ -6,7 +6,6 @@ import Badge from '../components/common/Badge.jsx'
 import MTSTriageCard from '../components/report/MTSTriageCard.jsx'
 import ClinicalAlertsCard from '../components/trends/ClinicalAlertsCard.jsx'
 import { getReport, getTriageAssessment, getClinicalAlerts } from '../services/api.js'
-import { mockMTSTriage, mockProactiveAlerts, mockPrescriptionData } from '../data/mockData.js'
 import Translate from '../components/common/Translate.jsx'
 
 export default function ReportInsightsPage() {
@@ -48,10 +47,10 @@ export default function ReportInsightsPage() {
           data.extracted_entities || {},
           data.extracted_entities?.symptoms || []
         )
-        setTriage(triageData || mockMTSTriage)
+        setTriage(triageData)
 
         const alertsData = await getClinicalAlerts()
-        setAlerts(alertsData || mockProactiveAlerts)
+        setAlerts(alertsData || [])
 
         setLoading(false)
         clearInterval(interval)
@@ -114,7 +113,7 @@ export default function ReportInsightsPage() {
             <Translate>{report.document_type.replace('_', ' ')}</Translate>
           </h1>
           <p className="mt-1 text-sm text-ink-soft">
-            {entities.patient_name || 'Meera Iyer'} · <Translate>Reviewed</Translate> {entities.report_date || new Date(report.upload_date).toLocaleDateString()}
+            {(entities.patient_name || 'Patient Report')} · <Translate>Reviewed</Translate> {entities.report_date || new Date(report.upload_date).toLocaleDateString()}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -132,10 +131,10 @@ export default function ReportInsightsPage() {
       </div>
 
       {/* Feature 5: Manchester Triage System Card */}
-      <MTSTriageCard triage={triage || mockMTSTriage} />
+      {triage && <MTSTriageCard triage={triage} />}
 
       {/* Feature 2: Proactive Clinical Alerts */}
-      <ClinicalAlertsCard alerts={alerts.length > 0 ? alerts : mockProactiveAlerts} />
+      {alerts && alerts.length > 0 && <ClinicalAlertsCard alerts={alerts} />}
 
       {/* Feature 6: Handwritten Prescription Card */}
       {isPrescription && (
@@ -145,39 +144,47 @@ export default function ReportInsightsPage() {
               <Pill className="text-purple-600" size={20} />
               <div>
                 <h3 className="font-display font-semibold text-lg text-purple-950">
-                  <Translate>Physician Handwritten Prescription Extraction</Translate>
+                  <Translate>Physician Prescription Extraction</Translate>
                 </h3>
                 <p className="text-xs text-purple-800">
-                  <Translate>OCR Vision LLM decoded physician handwriting with sig directions & dosage instructions.</Translate>
+                  <Translate>Decoded medications, dosage, sig directions & administration instructions.</Translate>
                 </p>
               </div>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full border border-purple-200">
-              {entities.handwritten_confidence_score || mockPrescriptionData.handwritten_confidence_score}% <Translate>Confidence</Translate>
-            </span>
+            {entities.handwritten_confidence_score && (
+              <span className="text-xs font-semibold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full border border-purple-200">
+                {entities.handwritten_confidence_score}% <Translate>Confidence</Translate>
+              </span>
+            )}
           </div>
 
           <div className="mt-4 space-y-4">
-            {(medicines.length > 0 ? medicines : mockPrescriptionData.medicines).map((med, idx) => (
-              <div key={idx} className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-ink text-base"><Translate>{med.name}</Translate></span>
-                  <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
-                    <Translate>{med.dosage || '20mg'}</Translate>
-                  </span>
+            {medicines.length > 0 ? (
+              medicines.map((med, idx) => (
+                <div key={idx} className="bg-white p-4 rounded-xl border border-purple-100 shadow-sm space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-ink text-base"><Translate>{med.name}</Translate></span>
+                    {med.dosage && (
+                      <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                        <Translate>{med.dosage}</Translate>
+                      </span>
+                    )}
+                  </div>
+                  {med.sig && (
+                    <p className="text-xs text-ink/90 font-medium bg-porcelain p-2.5 rounded-lg border border-ink/5">
+                      <strong><Translate>Sig / Directions:</Translate> </strong> <Translate>{med.sig}</Translate>
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-ink-soft pt-1">
+                    {med.frequency && <span><Translate>Frequency:</Translate> <Translate>{med.frequency}</Translate></span>}
+                    {med.duration && <span><Translate>Duration:</Translate> <Translate>{med.duration}</Translate></span>}
+                    {med.refills && <span><Translate>Refills:</Translate> {med.refills}</span>}
+                  </div>
                 </div>
-                {med.sig && (
-                  <p className="text-xs text-ink/90 font-medium bg-porcelain p-2.5 rounded-lg border border-ink/5">
-                    <strong><Translate>Sig / Directions:</Translate> </strong> <Translate>{med.sig}</Translate>
-                  </p>
-                )}
-                <div className="flex items-center gap-4 text-xs text-ink-soft pt-1">
-                  <span><Translate>Frequency:</Translate> <Translate>{med.frequency || 'Once Daily'}</Translate></span>
-                  <span><Translate>Duration:</Translate> <Translate>{med.duration || '5 Years'}</Translate></span>
-                  {med.refills && <span><Translate>Refills:</Translate> {med.refills}</span>}
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-purple-900/80 bg-white/60 p-4 rounded-xl border border-purple-100"><Translate>No individual medications identified in this document.</Translate></p>
+            )}
           </div>
         </Card>
       )}
@@ -247,19 +254,19 @@ export default function ReportInsightsPage() {
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between border-b border-ink/5 pb-2">
               <dt className="text-ink-soft"><Translate>Name</Translate></dt>
-              <dd className="font-medium text-ink"><Translate>{entities.patient_name || 'Meera Iyer'}</Translate></dd>
+              <dd className="font-medium text-ink"><Translate>{entities.patient_name || 'Not specified in report'}</Translate></dd>
             </div>
             <div className="flex justify-between border-b border-ink/5 pb-2">
               <dt className="text-ink-soft"><Translate>Age</Translate></dt>
-              <dd className="font-medium text-ink"><Translate>{entities.patient_age || 47}</Translate></dd>
+              <dd className="font-medium text-ink"><Translate>{entities.patient_age ? `${entities.patient_age} yrs` : 'Not specified'}</Translate></dd>
             </div>
             <div className="flex justify-between border-b border-ink/5 pb-2">
               <dt className="text-ink-soft"><Translate>Gender</Translate></dt>
-              <dd className="font-medium text-ink capitalize"><Translate>{entities.patient_gender || 'Female'}</Translate></dd>
+              <dd className="font-medium text-ink capitalize"><Translate>{entities.patient_gender || 'Not specified'}</Translate></dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-ink-soft"><Translate>Hospital / Doctor</Translate></dt>
-              <dd className="font-medium text-ink"><Translate>{entities.hospital || entities.doctor_name || 'Apex Oncology Clinic'}</Translate></dd>
+              <dd className="font-medium text-ink"><Translate>{entities.hospital || entities.doctor_name || 'Not specified'}</Translate></dd>
             </div>
           </dl>
         </Card>

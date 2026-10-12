@@ -29,7 +29,16 @@ export default function LoginModal({ isOpen, onClose }) {
       }
       onClose();
     } catch (err) {
-      setError(err.response?.data?.detail || 'An error occurred. Please try again.');
+      const detail = err.response?.data?.detail;
+      if (detail) {
+        setError(detail);
+      } else if (err.response?.status === 500) {
+        setError('Server error: Database connection failed. Please check backend settings.');
+      } else if (!err.response) {
+        setError('Network error: Unable to reach the server.');
+      } else {
+        setError('An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

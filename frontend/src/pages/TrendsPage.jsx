@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TrendingDown, TrendingUp, AlertTriangle, Loader2, Sparkles, ChevronDown, Filter } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { TrendingDown, TrendingUp, AlertTriangle, Loader2, Sparkles, ChevronDown, Filter, FileText } from 'lucide-react'
 import Card from '../components/common/Card.jsx'
 import TrendChart from '../components/trends/TrendChart.jsx'
 import ComparisonChart from '../components/trends/ComparisonChart.jsx'
 import ClinicalAlertsCard from '../components/trends/ClinicalAlertsCard.jsx'
 import { getTimeline, getReports, compareReports, getClinicalAlerts } from '../services/api.js'
-import { mockProactiveAlerts } from '../data/mockData.js'
 import Translate from '../components/common/Translate.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import { useTrends } from '../context/TrendsContext.jsx'
 
 export default function TrendsPage() {
+  const navigate = useNavigate()
   const {
     marker, setMarker,
     docTypeFilter, setDocTypeFilter,
@@ -25,54 +26,26 @@ export default function TrendsPage() {
   } = useTrends()
 
   const [alerts, setAlerts] = useState([])
-
   const { lang, t } = useLanguage()
-
-  const demoReports = useMemo(() => [
-    {
-      id: 'demo-report-1',
-      document_type: 'bloodwork',
-      upload_date: '2026-03-15T10:00:00Z',
-      extracted_entities: {
-        report_date: '15 Mar 2026',
-        lab_parameters: [
-          { name: 'CA 15-3', value: 24.6, units: 'U/mL' },
-          { name: 'Hemoglobin', value: 12.4, units: 'g/dL' }
-        ]
-      }
-    },
-    {
-      id: 'demo-report-2',
-      document_type: 'bloodwork',
-      upload_date: '2026-06-20T10:00:00Z',
-      extracted_entities: {
-        report_date: '20 Jun 2026',
-        lab_parameters: [
-          { name: 'CA 15-3', value: 29.1, units: 'U/mL' },
-          { name: 'Hemoglobin', value: 11.8, units: 'g/dL' }
-        ]
-      }
-    }
-  ], [])
 
   useEffect(() => {
     if (!initialized) {
       getReports().then(res => {
-        const raw = res.data && res.data.length > 0 ? res.data : demoReports
+        const raw = res.data || []
         const sorted = [...raw].sort((a, b) => new Date(b.upload_date) - new Date(a.upload_date))
         setReports(sorted)
         setInitialized(true)
       }).catch(err => {
-        console.error("Could not fetch reports, using reference demo reports", err)
-        setReports(demoReports)
+        console.error("Could not fetch reports", err)
+        setReports([])
         setInitialized(true)
       })
     }
 
     getClinicalAlerts().then(res => {
-      setAlerts(res || mockProactiveAlerts)
-    }).catch(() => setAlerts(mockProactiveAlerts))
-  }, [initialized, setReports, setInitialized, demoReports])
+      setAlerts(res || [])
+    }).catch(() => setAlerts([]))
+  }, [initialized, setReports, setInitialized])
 
   const uniqueDocTypes = useMemo(() => {
     const types = new Set()
@@ -116,32 +89,20 @@ export default function TrendsPage() {
   }, [uniqueMarkers, marker, setMarker])
 
   useEffect(() => {
+    if (!marker) return
     setLoadingTimeline(true)
     getTimeline(marker, docTypeFilter).then(res => {
-      let rawData = res.data
-      if (!rawData || rawData.length === 0) {
-        rawData = [
-          { date: "2026-01-15", value: 18.2 },
-          { date: "2026-03-20", value: 24.6 },
-          { date: "2026-05-12", value: 29.1 },
-          { date: "2026-06-28", value: 27.4 }
-        ]
-      }
+      const rawData = res.data || []
       const formatted = rawData.map((item, i) => ({
         visit: `V${i+1}`,
-        label: new Date(item.date).toLocaleDateString(),
+        label: item.date ? new Date(item.date).toLocaleDateString() : `V${i+1}`,
         value: item.value
       }))
       setTimelineData(formatted)
       setLoadingTimeline(false)
     }).catch(err => {
       console.error(err)
-      setTimelineData([
-        { visit: 'V1', label: '15/1/2026', value: 18.2 },
-        { visit: 'V2', label: '20/3/2026', value: 24.6 },
-        { visit: 'V3', label: '12/5/2026', value: 29.1 },
-        { visit: 'V4', label: '28/6/2026', value: 27.4 }
-      ])
+      setTimelineData([])
       setLoadingTimeline(false)
     })
   }, [marker, docTypeFilter, setLoadingTimeline, setTimelineData])
@@ -155,16 +116,37 @@ export default function TrendsPage() {
       setLoadingCompare(false)
     }).catch(err => {
       console.error(err)
-      setComparisonData({
-        summary: "CA 15-3 biomarker increased by +18.3% from 24.6 U/mL to 29.1 U/mL across 3 months. Hemoglobin experienced a mild 4.8% reduction. Patient shows favorable response to endocrine maintenance therapy with no acute invasiveness.",
-        confidence_score: 94,
-        chart_data: [
-          { parameter: "CA 15-3", old_value: "24.6", new_value: "29.1", percent_change: 18.3 },
-          { parameter: "Hemoglobin", old_value: "12.4", new_value: "11.8", percent_change: -4.8 }
-        ]
-      })
+      setComparisonData(null)
       setLoadingCompare(false)
     })
+  }
+
+  if (initialized && reports.length === 0) {
+    return (
+      <div className="mx-auto max-w-[1600px] px-6 sm:px-8 lg:px-12 py-16 space-y-8">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-widest text-rose-600"><Translate>Health trends</Translate></p>
+          <h1 className="mt-2 font-display text-3xl text-ink"><Translate>Your timeline, compared</Translate></h1>
+          <p className="mt-2 text-ink-soft max-w-xl">
+            <Translate>Track longitudinal biomarker trajectories, lab parameters, and multi-visit shifts over time.</Translate>
+          </p>
+        </div>
+
+        <div className="text-center py-20 border border-ink/5 rounded-2xl bg-white shadow-sm">
+          <FileText size={48} className="mx-auto text-ink/20 mb-4" />
+          <h3 className="text-lg font-medium text-ink"><Translate>No reports uploaded yet</Translate></h3>
+          <p className="text-ink-soft mt-1 mb-6 max-w-md mx-auto">
+            <Translate>Upload at least one medical report or blood test to visualize your biomarker timelines and compare visit findings.</Translate>
+          </p>
+          <button 
+            onClick={() => navigate('/upload')} 
+            className="bg-rose-500 text-white px-6 py-2.5 rounded-full font-medium text-sm hover:bg-rose-600 transition shadow-sm inline-flex items-center gap-2"
+          >
+            <Translate>Upload your first report</Translate>
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -192,7 +174,7 @@ export default function TrendsPage() {
       </div>
 
       {/* Feature 2: Proactive Clinical Alerts Banner */}
-      <ClinicalAlertsCard alerts={alerts.length > 0 ? alerts : mockProactiveAlerts} />
+      {alerts && alerts.length > 0 && <ClinicalAlertsCard alerts={alerts} />}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="md:col-span-2">

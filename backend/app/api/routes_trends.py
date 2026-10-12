@@ -58,15 +58,6 @@ async def get_timeline(marker: str | None = None, document_type: str | None = No
                     "report_id": str(report["_id"])
                 })
 
-    if not timeline:
-        # Fallback reference clinical trajectory so users can see trends immediately
-        timeline = [
-            {"date": "2026-01-15", "value": 18.2, "units": "U/mL", "report_id": "demo-1"},
-            {"date": "2026-03-20", "value": 24.6, "units": "U/mL", "report_id": "demo-2"},
-            {"date": "2026-05-12", "value": 29.1, "units": "U/mL", "report_id": "demo-3"},
-            {"date": "2026-06-28", "value": 27.4, "units": "U/mL", "report_id": "demo-4"}
-        ]
-                    
     return timeline
 
 @router.get("/compare")
@@ -74,31 +65,19 @@ async def compare_reports(id1: str, id2: str, language: str = "en", user_id: str
     """
     Compare two reports and return AI generated summary of changes.
     """
-    if str(id1).startswith("demo") or str(id2).startswith("demo"):
-        return {
-            "summary": "CA 15-3 biomarker increased by +18.3% from 24.6 U/mL to 29.1 U/mL across 3 months. Hemoglobin experienced a mild 4.8% reduction. Patient shows favorable response to endocrine maintenance therapy with no acute invasiveness.",
-            "confidence_score": 94,
-            "chart_data": [
-                {"parameter": "CA 15-3", "old_value": "24.6", "new_value": "29.1", "percent_change": 18.3},
-                {"parameter": "Hemoglobin", "old_value": "12.4", "new_value": "11.8", "percent_change": -4.8}
-            ]
-        }
-
     effective_id = user_id or "guest_patient_default"
     try:
-        r1 = await db.db.reports.find_one({"_id": ObjectId(id1), "$or": [{"patient_id": effective_id}, {"patient_id": "guest_patient_default"}]})
-        r2 = await db.db.reports.find_one({"_id": ObjectId(id2), "$or": [{"patient_id": effective_id}, {"patient_id": "guest_patient_default"}]})
+        r1 = await db.db.reports.find_one({"_id": ObjectId(id1), "patient_id": effective_id})
+        r2 = await db.db.reports.find_one({"_id": ObjectId(id2), "patient_id": effective_id})
     except Exception:
         r1, r2 = None, None
     
     if not r1 or not r2:
         return {
-            "summary": "CA 15-3 biomarker increased by +18.3% from 24.6 U/mL to 29.1 U/mL across 3 months. Hemoglobin experienced a mild 4.8% reduction. Patient shows favorable response to endocrine maintenance therapy with no acute invasiveness.",
-            "confidence_score": 94,
-            "chart_data": [
-                {"parameter": "CA 15-3", "old_value": "24.6", "new_value": "29.1", "percent_change": 18.3},
-                {"parameter": "Hemoglobin", "old_value": "12.4", "new_value": "11.8", "percent_change": -4.8}
-            ]
+            "summary": "Please select two valid reports from your history to compare.",
+            "confidence_score": None,
+            "chart_data": [],
+            "insights": []
         }
         
     e1 = r1.get("extracted_entities", {})
@@ -208,13 +187,17 @@ async def compare_reports(id1: str, id2: str, language: str = "en", user_id: str
     }
 
 @router.get("/alerts")
-async def get_clinical_alerts(user_id: str = Depends(get_current_user_id)):
+async def get_clinical_alerts(user_id: str | None = Depends(get_optional_user_id)):
     """
     Proactive Clinical Alerts: Analyzes patient's longitudinal findings to detect significant changes
     and recommend healthcare provider discussion.
     """
-    cursor = db.db.reports.find({"patient_id": user_id}).sort("upload_date", 1)
+    effective_id = user_id or "guest_patient_default"
+    cursor = db.db.reports.find({"patient_id": effective_id}).sort("upload_date", 1)
     reports = await cursor.to_list(length=50)
+    
+    if not reports:
+        return []
     
     alerts = []
     

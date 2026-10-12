@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { mockMTSTriage, mockProactiveAlerts } from '../data/mockData.js'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -70,7 +69,8 @@ export const getTriageAssessment = async (findings = {}, symptoms = []) => {
     const res = await api.post('/triage/assess', { findings, symptoms })
     return res.data
   } catch (err) {
-    return mockMTSTriage
+    console.error("Triage assessment error:", err)
+    return null
   }
 }
 
@@ -79,7 +79,8 @@ export const getClinicalAlerts = async () => {
     const res = await api.get('/trends/alerts')
     return res.data
   } catch (err) {
-    return mockProactiveAlerts
+    console.error("Clinical alerts error:", err)
+    return []
   }
 }
 

@@ -1,4 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient
+from urllib.parse import urlparse
 from app.config import settings
 
 class MongoDB:
@@ -8,13 +9,13 @@ class MongoDB:
 db = MongoDB()
 
 async def connect_to_mongo():
-    db.client = AsyncIOMotorClient(settings.mongo_uri)
-    # Parse DB name from URI
-    db_name = settings.mongo_uri.split("/")[-1].split("?")[0]
+    parsed = urlparse(settings.mongo_uri)
+    db_name = parsed.path.lstrip('/')
     if not db_name:
         db_name = "healthcare_assistant"
+    db.client = AsyncIOMotorClient(settings.mongo_uri)
     db.db = db.client[db_name]
-    print("Connected to MongoDB")
+    print(f"Connected to MongoDB (db: {db_name})")
 
 async def close_mongo_connection():
     if db.client:

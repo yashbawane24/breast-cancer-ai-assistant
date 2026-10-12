@@ -45,5 +45,19 @@ def root():
     return {"status": "ok", "service": "breast-cancer-ai-assistant"}
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])
-def health_check():
-    return {"status": "ok"}
+async def health_check():
+    db_status = "ok"
+    db_error = None
+    try:
+        if db.client is not None:
+            await db.client.admin.command('ping')
+        else:
+            db_status = "disconnected"
+    except Exception as e:
+        db_status = "error"
+        db_error = str(e)
+    return {
+        "status": "ok",
+        "database": db_status,
+        "database_error": db_error
+    }

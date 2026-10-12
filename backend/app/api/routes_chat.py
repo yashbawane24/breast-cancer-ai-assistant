@@ -22,7 +22,7 @@ async def chat(payload: ChatRequest, user_id: str | None = Depends(get_optional_
     effective_user_id = user_id or DEFAULT_GUEST_ID
     longitudinal_summary = ""
     try:
-        cursor = db.db.reports.find({"$or": [{"patient_id": effective_user_id}, {"patient_id": DEFAULT_GUEST_ID}]}).sort("upload_date", 1)
+        cursor = db.db.reports.find({"patient_id": effective_user_id}).sort("upload_date", 1)
         reports = await cursor.to_list(length=10)
         if reports:
             summary_items = []
