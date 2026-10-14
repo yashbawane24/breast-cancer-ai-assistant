@@ -61,25 +61,41 @@ async def assess_triage(payload: TriageRequest):
     chemo = any("chemo" in s for s in symptoms)
     acute_pain = any("severe pain" in s or "chest pain" in s or "shortness of breath" in s for s in symptoms)
 
-    
+    # Look for RBS / Hypoglycemia in findings or lab_parameters
+    rbs_val = None
+    for lab in (findings.get("lab_parameters") or []):
+        name = (lab.get("name") if isinstance(lab, dict) else getattr(lab, "name", "") or "").lower()
+        if "rbs" in name or "glucose" in name or "blood sugar" in name:
+            try:
+                val_str = str(lab.get("value") if isinstance(lab, dict) else getattr(lab, "value", "") or "")
+                import re
+                match = re.search(r'[-+]?\d*\.?\d+', val_str)
+                if match:
+                    rbs_val = float(match.group())
+                    break
+            except Exception:
+                pass
+    has_hypo = any("hypoglycem" in str(d).lower() for d in (findings.get("diagnosis") or [])) or (rbs_val is not None and rbs_val < 70)
+
     # Red / Immediate Triage (Score 1)
-    if any("shortness of breath" in s or "chest pain" in s or "unconscious" in s for s in symptoms):
+    if any("shortness of breath" in s or "chest pain" in s or "unconscious" in s for s in symptoms) or (rbs_val is not None and rbs_val < 40):
         return MTSTriageResponse(
             triage_color="Red",
             triage_level_name="Immediate (Red - Category 1)",
             urgency_score=1,
             target_time_minutes=0,
-            clinical_indicators=["Acute Cardiorespiratory Distress", "Critical Emergency Indicator"],
+            clinical_indicators=["Acute Cardiorespiratory Distress / Severe Metabolic Crisis", "Critical Emergency Indicator"],
             action_recommendation="Seek immediate emergency medical evaluation (Call Emergency Services / Visit nearest Emergency Department).",
-            provider_guidance="Requires immediate resuscitation assessment by emergency physician."
+            provider_guidance="Requires immediate resuscitation assessment and rapid IV dextrose by emergency physician."
         )
         
     # Orange / Very Urgent Triage (Score 2)
-    if (fever and chemo) or acute_pain or "4c" in bi_rads.lower() or "5" in bi_rads:
+    if (fever and chemo) or acute_pain or "4c" in bi_rads.lower() or "5" in bi_rads or (has_hypo and rbs_val is not None and rbs_val <= 60):
         indicators = [c for c in [
             "Febrile Neutropenia Risk (Fever during Active Chemotherapy)" if (fever and chemo) else None,
             f"High-Risk Finding (BI-RADS {bi_rads})" if ("4" in bi_rads or "5" in bi_rads) else None,
-            "Acute Inflammatory Symptom" if acute_pain else None
+            "Acute Inflammatory Symptom" if acute_pain else None,
+            f"Acute Hypoglycemia Crisis (RBS {int(rbs_val)} mg/dL)" if (has_hypo and rbs_val is not None and rbs_val <= 60) else None
         ] if c]
         if not indicators:
             indicators = ["High Clinical Priority Parameter"]
@@ -90,8 +106,8 @@ async def assess_triage(payload: TriageRequest):
             urgency_score=2,
             target_time_minutes=15,
             clinical_indicators=indicators,
-            action_recommendation="Contact your oncology clinical care team or visit Urgent Oncology Care within 1-2 hours.",
-            provider_guidance="Perform STAT CBC with differential to rule out neutropenic sepsis. Evaluate suspicious mass."
+            action_recommendation="Immediate STAT IV Dextrose administration and clinical evaluation within 15-30 minutes." if has_hypo else "Contact your oncology clinical care team or visit Urgent Oncology Care within 1-2 hours.",
+            provider_guidance="Administer STAT IV Dextrose (5% or 10%) and re-check blood glucose every 15 minutes." if has_hypo else "Perform STAT CBC with differential to rule out neutropenic sepsis. Evaluate suspicious mass."
         )
         
     # Yellow / Urgent Triage (Score 3)

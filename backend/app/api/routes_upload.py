@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 import os
 import shutil
+import re
 from datetime import datetime
 from bson import ObjectId
 
@@ -44,7 +45,7 @@ async def upload_report(
     result = await db.db.reports.insert_one(report.model_dump())
     report_id = str(result.inserted_id)
     
-    # Process inline with resilient error catching
+    # Process inline with resilient multi-engine extraction
     raw_text = ""
     structured = {}
     
@@ -53,14 +54,27 @@ async def upload_report(
     except Exception as ocr_err:
         print(f"Error during OCR extraction on {file_path}: {ocr_err}")
         raw_text = f"Document: {file.filename}\nType: {document_type}"
-        
+
+    # Auto-detect prescription if uploaded without explicit selection
+    effective_doc_type = document_type
+    prescription_markers = [
+        r'\brx\b', r'\badv:?', r'\bc/o\b', r'\bclo\b', r'\buhid\b', 
+        r'\bdextrose\b', r'\bors\b', r'\bstat\b', r'giddi?ness', 
+        r'doctor', r'prescription'
+    ]
+    raw_lower = raw_text.lower()
+    matches = sum(1 for p in prescription_markers if re.search(p, raw_lower))
+    if matches >= 2 and effective_doc_type not in ["handwritten_prescription", "prescription"]:
+        print(f"Auto-detected document as handwritten_prescription ({matches} prescription indicators found).")
+        effective_doc_type = "handwritten_prescription"
+
     try:
-        structured = await nlp_extraction_service.extract_entities(raw_text, document_type)
+        structured = await nlp_extraction_service.extract_entities(raw_text, effective_doc_type)
     except Exception as nlp_err:
         print(f"Error during NLP entity extraction on {file_path}: {nlp_err}")
         structured = {
             "patient_name": "Patient",
-            "diagnosis": [f"Reviewed {document_type.replace('_', ' ').capitalize()}"],
+            "diagnosis": [f"Reviewed {effective_doc_type.replace('_', ' ').capitalize()}"],
             "symptoms": [],
             "doctor_recommendations": ["Follow clinical provider instructions."],
             "complex_terminologies": [],
@@ -70,7 +84,7 @@ async def upload_report(
     # Index into RAG knowledge base for conversational assistant
     if raw_text:
         try:
-            rag_service.add_document_to_kb(raw_text, {"report_id": report_id, "type": document_type})
+            rag_service.add_document_to_kb(raw_text, {"report_id": report_id, "type": effective_doc_type})
         except Exception as kb_err:
             print(f"Error adding document to RAG KB: {kb_err}")
     
@@ -78,6 +92,7 @@ async def upload_report(
     await db.db.reports.update_one(
         {"_id": ObjectId(report_id)}, 
         {"$set": {
+            "document_type": effective_doc_type,
             "ocr_text": raw_text, 
             "extracted_entities": structured,
             "status": "completed"
@@ -90,4 +105,3 @@ async def upload_report(
         
     final_report["id"] = str(final_report["_id"])
     return ReportOut(**final_report)
-

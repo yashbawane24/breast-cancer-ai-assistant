@@ -157,6 +157,22 @@ export default function ReportInsightsPage() {
               </span>
             )}
           </div>
+          {(entities.diagnosis?.length > 0 || entities.symptoms?.length > 0) && (
+            <div className="mt-3 p-3 bg-white/80 rounded-xl border border-purple-200/80 flex flex-wrap gap-4 text-xs text-purple-950">
+              {entities.diagnosis?.length > 0 && (
+                <div>
+                  <span className="font-semibold text-purple-900"><Translate>Impression / Diagnosis:</Translate> </span>
+                  <span className="font-bold text-rose-700">{entities.diagnosis.join(', ')}</span>
+                </div>
+              )}
+              {entities.symptoms?.length > 0 && (
+                <div>
+                  <span className="font-semibold text-purple-900"><Translate>Chief Complaints (c/o):</Translate> </span>
+                  <span className="font-medium text-ink">{entities.symptoms.join(', ')}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-4 space-y-4">
             {medicines.length > 0 ? (
@@ -256,6 +272,12 @@ export default function ReportInsightsPage() {
               <dt className="text-ink-soft"><Translate>Name</Translate></dt>
               <dd className="font-medium text-ink"><Translate>{entities.patient_name || 'Not specified in report'}</Translate></dd>
             </div>
+            {entities.uhid_ip_no && (
+              <div className="flex justify-between border-b border-ink/5 pb-2">
+                <dt className="text-ink-soft"><Translate>UHID / IP No.</Translate></dt>
+                <dd className="font-medium text-ink font-mono">{entities.uhid_ip_no}</dd>
+              </div>
+            )}
             <div className="flex justify-between border-b border-ink/5 pb-2">
               <dt className="text-ink-soft"><Translate>Age</Translate></dt>
               <dd className="font-medium text-ink"><Translate>{entities.patient_age ? `${entities.patient_age} yrs` : 'Not specified'}</Translate></dd>
@@ -264,10 +286,27 @@ export default function ReportInsightsPage() {
               <dt className="text-ink-soft"><Translate>Gender</Translate></dt>
               <dd className="font-medium text-ink capitalize"><Translate>{entities.patient_gender || 'Not specified'}</Translate></dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-ink-soft"><Translate>Hospital / Doctor</Translate></dt>
-              <dd className="font-medium text-ink"><Translate>{entities.hospital || entities.doctor_name || 'Not specified'}</Translate></dd>
+            {entities.report_date && (
+              <div className="flex justify-between border-b border-ink/5 pb-2">
+                <dt className="text-ink-soft"><Translate>Prescription Date</Translate></dt>
+                <dd className="font-medium text-ink">{entities.report_date}</dd>
+              </div>
+            )}
+            <div className="flex justify-between border-b border-ink/5 pb-2">
+              <dt className="text-ink-soft"><Translate>Hospital / Clinic</Translate></dt>
+              <dd className="font-medium text-ink text-right max-w-[65%]"><Translate>{entities.hospital || 'Not specified'}</Translate></dd>
             </div>
+            {(entities.doctor_name || entities.prescribing_doctor || entities.doctor_registration_no) && (
+              <div className="flex justify-between">
+                <dt className="text-ink-soft"><Translate>Doctor / Reg. No.</Translate></dt>
+                <dd className="font-medium text-ink text-right">
+                  {entities.prescribing_doctor || entities.doctor_name || 'Licensed Physician'}
+                  {entities.doctor_registration_no && (
+                    <span className="ml-1 text-xs text-ink-soft">({entities.doctor_registration_no})</span>
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
         </Card>
 
