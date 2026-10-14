@@ -36,7 +36,7 @@ async def chat(payload: ChatRequest, user_id: str | None = Depends(get_optional_
     except Exception as e:
         print(f"Error fetching longitudinal history: {e}")
 
-    result = rag_service.answer_question(
+    result = await rag_service.answer_question(
         message=payload.message,
         patient_id=effective_user_id,
         language=payload.language or "en",

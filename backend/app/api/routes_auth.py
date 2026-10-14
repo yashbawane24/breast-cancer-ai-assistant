@@ -1,4 +1,5 @@
 """Authentication routes: signup, login, token refresh."""
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from app.models.user import UserCreate, UserOut, UserInDB
@@ -13,7 +14,8 @@ async def signup(user: UserCreate):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    hashed_password = get_password_hash(user.password)
+    # Run CPU-bound bcrypt in worker thread to prevent event-loop stalling
+    hashed_password = await asyncio.to_thread(get_password_hash, user.password)
     user_in_db = UserInDB(**user.model_dump(), hashed_password=hashed_password)
     
     result = await db.db.users.insert_one(user_in_db.model_dump())
@@ -30,11 +32,26 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     if not user_dict:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
-    if not verify_password(form_data.password, user_dict["hashed_password"]):
+    # Run CPU-bound bcrypt in worker thread to prevent event-loop stalling
+    is_valid = await asyncio.to_thread(verify_password, form_data.password, user_dict["hashed_password"])
+    if not is_valid:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
     access_token = create_access_token(data={"sub": str(user_dict["_id"])})
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    user_out = UserOut(
+        id=str(user_dict["_id"]),
+        email=user_dict["email"],
+        full_name=user_dict.get("full_name", ""),
+        role=user_dict.get("role", "patient"),
+        created_at=user_dict.get("created_at")
+    )
+    
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": user_out.model_dump()
+    }
 
 @router.get("/me", response_model=UserOut)
 async def get_me(user_id: str = Depends(get_current_user_id)):

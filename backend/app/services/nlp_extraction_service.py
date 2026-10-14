@@ -360,9 +360,10 @@ async def extract_entities(raw_text: str, document_type: str) -> dict:
     
     raw_response_text = None
     if settings.groq_api_key:
+        from app.services.llm_service import async_client
         for model in models_to_try:
             try:
-                response = client.chat.completions.create(
+                response = await async_client.chat.completions.create(
                     model=model,
                     messages=[
                         {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},

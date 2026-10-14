@@ -57,22 +57,8 @@ async def health_check():
         db_status = "error"
         db_error = str(e)
 
-    llm_status = "ok"
-    llm_error = None
-    if not settings.groq_api_key:
-        llm_status = "missing_api_key"
-        llm_error = "GROQ_API_KEY is not configured in environment variables"
-    else:
-        try:
-            from app.services.llm_service import client
-            client.chat.completions.create(
-                model="qwen/qwen3.8-27b",
-                messages=[{"role": "user", "content": "ping"}],
-                max_tokens=2
-            )
-        except Exception as e:
-            llm_status = "error"
-            llm_error = str(e)
+    llm_status = "ok" if settings.groq_api_key else "missing_api_key"
+    llm_error = None if settings.groq_api_key else "GROQ_API_KEY is not configured"
 
     return {
         "status": "ok",

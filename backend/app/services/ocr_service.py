@@ -257,38 +257,37 @@ def extract_text_from_text_file(file_path: str) -> str:
 async def extract_text(file_path: str, document_type: str) -> str:
     """
     Main extraction router based on file extension and document type.
-    Handles digital PDFs, scanned PDFs, images, and text documents.
+    Offloads heavy OCR to worker threads to keep FastAPI completely non-blocking.
     """
+    import asyncio
     ext = os.path.splitext(file_path)[1].lower()
-    text = ""
     
     # 1. Plain text formats
     if ext in [".txt", ".csv", ".json", ".md"]:
-        return extract_text_from_text_file(file_path)
+        return await asyncio.to_thread(extract_text_from_text_file, file_path)
         
     # 2. PDF formats
     if ext == ".pdf":
-        text = extract_text_from_digital_pdf(file_path)
+        text = await asyncio.to_thread(extract_text_from_digital_pdf, file_path)
         if len(text.strip()) < 30:
             print(f"PDF {file_path} contains minimal digital text. Running scanned PDF OCR...")
-            scanned_text = extract_text_from_scanned_pdf(file_path)
+            scanned_text = await asyncio.to_thread(extract_text_from_scanned_pdf, file_path)
             if scanned_text.strip():
                 text = scanned_text
                 
         if not text.strip():
             print("Running OCR.space API fallback for PDF...")
-            text = extract_ocr_space(file_path, engine="1")
+            text = await asyncio.to_thread(extract_ocr_space, file_path, "1")
                 
         return text.strip()
         
-    # 3. Image formats
+    # 3. Image formats (Offloaded to worker thread)
     if ext in [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"]:
-        text = extract_text_from_image(file_path, document_type)
-        return text.strip()
+        return await asyncio.to_thread(extract_text_from_image, file_path, document_type)
         
     # 4. Fallback for other file types
-    text = extract_text_from_digital_pdf(file_path)
+    text = await asyncio.to_thread(extract_text_from_digital_pdf, file_path)
     if not text.strip():
-        text = extract_text_from_image(file_path, document_type)
+        text = await asyncio.to_thread(extract_text_from_image, file_path, document_type)
         
     return text.strip()

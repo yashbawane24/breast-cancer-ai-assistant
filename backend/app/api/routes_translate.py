@@ -14,11 +14,11 @@ class BatchTranslationRequest(BaseModel):
     target_lang: str
 
 @router.post("")
-def translate_text(request: TranslationRequest):
-    translated = translate(request.text, request.target_lang)
+async def translate_text(request: TranslationRequest):
+    translated = await translate(request.text, request.target_lang)
     return {"translated_text": translated}
 
 @router.post("/batch")
-def translate_batch_texts(request: BatchTranslationRequest):
-    translated = translate_batch(request.texts, request.target_lang)
+async def translate_batch_texts(request: BatchTranslationRequest):
+    translated = await translate_batch(request.texts, request.target_lang)
     return {"translated_texts": translated}

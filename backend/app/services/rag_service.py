@@ -86,7 +86,7 @@ def analyze_emotion(message: str) -> dict:
             "guidance": "Be polite, warm, clear, professional, and patient-centered."
         }
 
-def answer_question(message: str, patient_id: str, language: str = "en", longitudinal_context: str = "") -> dict:
+async def answer_question(message: str, patient_id: str, language: str = "en", longitudinal_context: str = "") -> dict:
     emotion_meta = analyze_emotion(message)
     context = retrieve_relevant_context(message)
     
@@ -113,7 +113,8 @@ def answer_question(message: str, patient_id: str, language: str = "en", longitu
     )
     
     try:
-        response = client.chat.completions.create(
+        from app.services.llm_service import async_client
+        response = await async_client.chat.completions.create(
             model=RAG_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},

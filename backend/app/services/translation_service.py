@@ -127,7 +127,7 @@ COMMON_DICTIONARY = {
 
 memory_cache = {}
 
-def translate(text: str, target_lang: str) -> str:
+async def translate(text: str, target_lang: str) -> str:
     lang = target_lang.lower().strip()
     if lang in ["en", "english"] or not text:
         return text
@@ -151,7 +151,8 @@ def translate(text: str, target_lang: str) -> str:
     prompt = f"Translate the following medical or healthcare text directly into {target_lang_name}. Do NOT translate medical biomarker acronyms (like ER, PR, HER2, Ki-67, CA 15-3). Return ONLY the translated string without quotes or conversational commentary.\n\nText: {text}"
 
     try:
-        response = client.chat.completions.create(
+        from app.services.llm_service import async_client
+        response = await async_client.chat.completions.create(
             model=TRANSLATION_MODEL,
             messages=[
                 {"role": "system", "content": f"You are a professional medical translator into {target_lang_name}. Return ONLY the direct translation."},
@@ -169,7 +170,7 @@ def translate(text: str, target_lang: str) -> str:
 
     return text
 
-def translate_batch(texts: list[str], target_lang: str) -> list[str]:
+async def translate_batch(texts: list[str], target_lang: str) -> list[str]:
     lang = target_lang.lower().strip()
     if lang in ["en", "english"] or not texts:
         return texts
@@ -207,7 +208,8 @@ Texts to translate:
 {json.dumps(missing_texts)}"""
 
     try:
-        response = client.chat.completions.create(
+        from app.services.llm_service import async_client
+        response = await async_client.chat.completions.create(
             model=TRANSLATION_MODEL,
             messages=[
                 {"role": "system", "content": f"You are a professional medical translator into {target_lang_name}. Output valid JSON with 'translations' list only."},

@@ -165,7 +165,7 @@ async def compare_reports(id1: str, id2: str, language: str = "en", user_id: str
     
     try:
         if len(chart_data) > 0 and settings.groq_api_key:
-            result = structured_llm.invoke(prompt)
+            result = await structured_llm.ainvoke(prompt)
             insights = result.model_dump()["insights"]
             summary = result.summary
             confidence_score = result.confidence_score
